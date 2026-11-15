@@ -1,0 +1,6 @@
+*.o
+*.out
+harness
+hA
+hB
+*.log
