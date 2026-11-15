@@ -1,0 +1,60 @@
+* EDA front end, automatic bias control (Poh, Swenson, Picard, IEEE TBME 2010, Fig. 10a)
+* Single supply, ideal-ish rail-to-rail op-amps (swap in LTC6081 later).
+*
+* Nodes:  vcc   supply (3.3 V)
+*         ninv  U1 inverting input (skin electrode node)
+*         vo    U1 output = voltage across skin = the measured signal
+*         vb    U2 output = bias fed to U1 + input
+*         n2    U2 inverting input
+*         vref  Vcc/2 reference from the 100k/100k divider
+
+.param Vcc=3.3
+.param Gs=5u            ; skin conductance in siemens (stepped below)
+
+* ---- Behavioral rail-to-rail op-amp: pins = inp inn out ----
+* Open-loop gain 1e5, clamped to 10 mV inside the rails, dominant pole ~3 Hz (GBW ~300 kHz)
+.subckt OA inp inn out
+B1 n1 0 V=limit(1e5*(V(inp)-V(inn)), 0.01, {Vcc}-0.01)
+Rp n1 n2 1Meg
+Cp n2 0 53n
+E1 out 0 n2 0 1
+.ends OA
+
+* ---- Supply ----
+V1 vcc 0 {Vcc}
+Cdec vcc 0 0.1u
+
+* ---- Skin model: pure resistor from Vcc to U1 inverting input ----
+Rskin vcc ninv {1/Gs}
+* Alternative for a dynamic test (an SCR-like conductance bump): comment out Rskin and use
+* Bskin vcc ninv I=V(vcc,ninv)*(2u + 1u*exp(-pow((time-1.5)/0.2,2)))
+
+* ---- Stage 1: transimpedance / low-pass, fc = 1/(2*pi*R1*C1) = 1.6 Hz ----
+R1 ninv vo 1Meg
+C1 ninv vo 0.1u
+XU1 vb ninv vo OA
+
+* ---- Stage 2: inverting integrator/low-pass, tau = R3*C3 = 10 ms ----
+R2 vo n2 100k
+R3 n2 vb 100k
+C3 n2 vb 0.1u
+XU2 vref n2 vb OA
+
+* ---- Vcc/2 reference ----
+Ra vcc vref 100k
+Rb vref 0 100k
+Cref vref 0 0.1u
+
+* ---- Analysis: sweep skin conductance, settle, then measure ----
+.step param Gs list 0.1u 0.5u 1u 2u 5u 10u 14u
+.tran 0 3 0 10m
+
+.meas tran Vo_ss    FIND V(vo)    AT=2.8
+.meas tran Vb_ss    FIND V(vb)    AT=2.8
+.meas tran Iskin_A  FIND I(Rskin) AT=2.8
+.meas tran Iskin_uA PARAM abs(Iskin_A)*1e6
+.meas tran Vo_pred  PARAM Vcc/(2+Gs*1Meg)
+.meas tran G_calc_uS PARAM (Vcc/Vo_ss-2)/1Meg*1e6
+.meas tran G_true_uS PARAM Gs*1e6
+
+.end
