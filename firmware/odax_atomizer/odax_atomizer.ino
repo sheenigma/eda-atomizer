@@ -62,7 +62,8 @@ const unsigned long MAX_CONTINUOUS_ON_MS = 15000;   // hard safety cutoff, any m
 const bool REARM_NEEDS_RELAX = true;   // after cooldown, wait until phasic is below half the trigger before re-arming
 
 // ---------------- Atomizer ----------------
-const bool ACTIVE_HIGH = true;   // module S: HIGH = spray (manufacturer's example)
+const bool ACTIVE_HIGH = false;  // module S is active-LOW: it sprays while D7 is LOW, so idle = HIGH.
+                                 // Observed: with idle LOW it ran continuously. Confirm with f / a / t (see README). Set true if inverted.
 
 // ---------------- ADC ----------------
 const float ADC_FULL = 1024.0f;

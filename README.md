@@ -26,6 +26,10 @@ The Uno has one 5V pin, so share it through one breadboard strip row. Never feed
 - `tools/` — Python capture and plotting (see below).
 - `sim/` — host-side C++ harnesses with a stub `Arduino.h` and simulated signals.
 
+## Atomizer check (do this before any real run)
+The module appears to be **active-LOW** (it ran continuously when D7 idled LOW), so the sketches use `ACTIVE_HIGH = false`: D7 idles HIGH and goes LOW to spray. Unconfirmed until tested. With S on D7, V on 5V, G on GND: send `f` (must be off), `a` (stays off), `t` (mists about 5 s, then stops). Mists on `f` or idle: set `ACTIVE_HIGH = true`. Toggles on each command instead of timing out: it is a falling-edge toggle and the sketch needs a pulse mode.
+D7 floats during reset and upload (about 1-2 s), so the atomizer may spray briefly each time `capture.py` opens the port. A 10 k pull-up from S to 5V holds it off.
+
 ## Capture and plot (Python)
 ```
 pip install -r tools/requirements.txt

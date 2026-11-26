@@ -1,5 +1,8 @@
 # Changelog
 
+## Atomizer polarity
+- Atomizer ran continuously with idle LOW and S confirmed on D7, so it is treated as active-LOW: `ACTIVE_HIGH = false` in `odax_atomizer.ino` and `atomizer.ino`. To be confirmed on hardware with `f`/`a`/`t`. Simulation: D7 idles HIGH, goes LOW at the same burst times as before.
+
 ## Real data, 2026-11-25 (ground wire seated, electrodes on hand)
 - Air reads 0.0 counts; skin reads 3-17 (resting 6-12, about 1% of the ADC range). Contact raises counts, so `POLARITY = +1`; `NO_CONTACT_BELOW = 1`.
 - Counts keep rising for about 40 s after contact, so calibration starting 2 s after contact biased the baseline low (phasic sat at +3 to +5 for minutes). Fix: `CALIBRATION_S = 60` and the baseline now starts at the current fast level instead of the window mean.

@@ -23,7 +23,7 @@
 */
 
 const uint8_t       ATOMIZER_PIN          = 7;
-const bool          ACTIVE_HIGH           = true;
+const bool          ACTIVE_HIGH           = false;  // observed: idle LOW ran continuously, so module is active-LOW
 const unsigned long ON_MS                 = 5000;    // AUTO mode: mist time
 const unsigned long OFF_MS                = 5000;    // AUTO mode: pause time
 const unsigned long MAX_CONTINUOUS_ON_MS  = 60000UL; // safety cutoff
