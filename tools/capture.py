@@ -41,6 +41,8 @@ def main():
     ap.add_argument("--out", help="output CSV (default: eda_YYYYmmdd_HHMMSS.csv)")
     ap.add_argument("--list", action="store_true", help="list serial ports and exit")
     ap.add_argument("--quiet", action="store_true", help="do not echo lines to the terminal")
+    ap.add_argument("--echo-every", type=int, default=20, help="echo every Nth line (default 20) so slow terminal output cannot stall the capture")
+    ap.add_argument("--url", help="open this pyserial URL instead of a port (for testing, e.g. loop://)")
     args = ap.parse_args()
 
     if args.list:
@@ -48,14 +50,14 @@ def main():
             print(f"{p.device}\t{p.description}")
         return 0
 
-    port = args.port or find_port()
+    port = args.url or args.port or find_port()
     if not port:
         print("No Arduino port found. Plug in the Uno, or use --list and --port.", file=sys.stderr)
         return 1
     out = args.out or dt.datetime.now().strftime("eda_%Y%m%d_%H%M%S.csv")
 
     try:
-        ser = serial.Serial(port, args.baud, timeout=0.2)
+        ser = serial.serial_for_url(port, args.baud, timeout=0.2) if args.url else serial.Serial(port, args.baud, timeout=0.2)
     except serial.SerialException as e:
         print(f"Could not open {port}: {e}\nIs the Serial Monitor/Plotter still open?", file=sys.stderr)
         return 1
@@ -80,6 +82,8 @@ def main():
     t0 = time.monotonic()
     wrote_probe_header = False
     n = 0
+    last_ms = None
+    lost_s = 0.0
     buf = b""
     with open(out, "w", newline="") as f:
         f.write(f"# captured {dt.datetime.now().isoformat(timespec='seconds')} from {port}\n")
@@ -104,7 +108,15 @@ def main():
                     n += 1
                     if n % 50 == 0:
                         f.flush()
-                    if not args.quiet:
+                    head = line.split(",", 1)[0]
+                    if head.isdigit():                 # sketch rows start with its ms clock
+                        ms = int(head)
+                        if last_ms is not None and ms - last_ms > 1000:
+                            lost_s += (ms - last_ms) / 1000.0
+                            print(f"!! DATA LOST: {(ms - last_ms) / 1000.0:.1f} s missing before ms={ms} "
+                                  f"(serial buffer overflowed: the capture was not reading)", file=sys.stderr)
+                        last_ms = ms
+                    if not args.quiet and n % max(1, args.echo_every) == 0:
                         print(line)
         except KeyboardInterrupt:
             pass
@@ -112,7 +124,7 @@ def main():
             stop.set()
             f.flush()
             ser.close()
-    print(f"\nSaved {n} lines to {out}")
+    print(f"\nSaved {n} lines to {out}" + (f"  (WARNING: {lost_s:.0f} s of data lost)" if lost_s else ""))
     return 0
 
 

@@ -32,8 +32,8 @@ pip install -r tools/requirements.txt
 python3 tools/capture.py --out data/rest_run.csv          # close the Arduino Serial Monitor first
 python3 tools/plot_eda.py data/rest_run.csv --polarity 1 --rest 40 220 --stim 240 270 300 330 360 --threshold 8
 ```
-- `capture.py` saves either sketch's output to CSV (probe `counts:` lines get PC-clock timestamps). Type `a/o/f/t/c` + Return to send commands. Opening the port resets the Uno, so it recalibrates.
-- `plot_eda.py` draws raw counts, fast/baseline, `phasic` with the trigger line and atomizer-on shading, and state. It prints N, D, S, E and a suggested `TRIGGER_RISE_COUNTS`. Times are seconds in the plot (`--rest` is a quiet-sitting window, `--stim` the times of your breaths or claps).
+- `capture.py` saves either sketch's output to CSV, echoes only every 20th line, and warns loudly if data is lost (probe `counts:` lines get PC-clock timestamps). Type `a/o/f/t/c` + Return to send commands. Opening the port resets the Uno, so it recalibrates.
+- `plot_eda.py` (`--start T` skips the settling period, `--recompute` rebuilds phasic from counts) draws raw counts, fast/baseline, `phasic` with the trigger line and atomizer-on shading, and state. It prints N, D, S, E and a suggested `TRIGGER_RISE_COUNTS`. Times are seconds in the plot (`--rest` is a quiet-sitting window, `--stim` the times of your breaths or claps).
 - `tools/examples/` has a synthetic example. Neither tool has been run on real hardware data yet.
 
 ## Status and caveats

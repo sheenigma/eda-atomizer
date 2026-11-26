@@ -33,14 +33,47 @@ STATE_NAMES = {0: "no contact", 1: "calibrating", 2: "armed", 3: "mist", 4: "coo
 
 
 def load(path):
-    df = pd.read_csv(path, comment="#", on_bad_lines="skip")
-    df = df[pd.to_numeric(df["ms"], errors="coerce").notna()].copy()
-    for c in df.columns:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df = df.dropna(subset=["ms", "counts"]).reset_index(drop=True)
+    """Read a capture robustly: skip junk before the header, drop spliced/corrupt rows,
+    keep time monotonic, and report gaps (lost data) so they are not drawn as a line."""
+    import csv
+    with open(path, newline="", errors="replace") as f:
+        lines = [ln.strip() for ln in f if ln.strip() and not ln.lstrip().startswith("#")]
+    hdr = next((i for i, ln in enumerate(lines) if ln.startswith("ms,")), None)
+    if hdr is None:
+        sys.exit("No header line starting with 'ms,' found.")
+    cols = lines[hdr].split(",")
+    rows, dropped = [], 0
+    last_ms = -1
+    for ln in lines[hdr + 1:]:
+        parts = ln.split(",")
+        if len(parts) != len(cols):
+            dropped += 1
+            continue
+        try:
+            vals = [float(p) for p in parts]
+        except ValueError:
+            dropped += 1
+            continue
+        d = dict(zip(cols, vals))
+        if "state" in d and d["state"] not in (0, 1, 2, 3, 4):
+            dropped += 1
+            continue
+        if "status" in d and d["status"] not in (0, 1):
+            dropped += 1
+            continue
+        if d["ms"] < last_ms:          # time went backwards: leftover from before a reset
+            dropped += 1
+            continue
+        last_ms = d["ms"]
+        rows.append(d)
+    df = pd.DataFrame(rows)
     if df.empty:
-        sys.exit("No data rows found. Expected a header line starting with 'ms,counts'.")
+        sys.exit("No data rows found.")
     df["t"] = (df["ms"] - df["ms"].iloc[0]) / 1000.0
+    step = float(df["t"].diff().median())
+    gaps = df.index[df["t"].diff() > max(1.0, 8 * step)].tolist()
+    df.attrs["gaps"] = [(float(df["t"].iloc[i - 1]), float(df["t"].iloc[i])) for i in gaps]
+    df.attrs["dropped"] = dropped
     return df
 
 
@@ -61,7 +94,7 @@ def recompute(df, polarity):
         if b is None:
             cal_vals.append(sig[i])
             if t[i] >= cal_end:
-                b = float(np.mean(cal_vals))
+                b = float(f)   # new sketch: baseline starts at the current fast level
                 base[i] = b
         else:
             b = b + (1 - math.exp(-dt_ / BASELINE_TAU_S)) * (sig[i] - b)
@@ -154,6 +187,10 @@ def plot(df, args, est, out_png):
     n = 4 if has_state else 3
     fig, axs = plt.subplots(n, 1, figsize=(11, 2.6 * n + 1), sharex=True,
                             gridspec_kw={"height_ratios": [2, 2, 2] + ([1] if has_state else [])})
+    gaps = df.attrs.get("gaps", [])
+    if gaps:
+        extra = pd.DataFrame({"t": [g[0] + 1e-3 for g in gaps]})
+        df = pd.concat([df, extra]).sort_values("t", kind="stable").reset_index(drop=True)
     t = df["t"].to_numpy()
     on = (df["atomizer"].fillna(0).to_numpy() > 0) if "atomizer" in df.columns else np.zeros(len(t), bool)
 
@@ -174,6 +211,8 @@ def plot(df, args, est, out_png):
     axs[2].set_ylabel("phasic = fast - baseline\n(counts)")
 
     for ax in axs[:3]:
+        for g in gaps:
+            ax.axvspan(g[0], g[1], color="#e45756", alpha=0.12, lw=0)
         if on.any():
             shade(ax, t, on, "#72b7b2", 0.35)
         if args.rest:
@@ -191,6 +230,7 @@ def plot(df, args, est, out_png):
     axs[-1].set_xlabel("time (s)")
 
     note = ["teal = atomizer on" if on.any() else None,
+            "red = lost data" if gaps else None,
             "grey = rest window" if args.rest else None,
             "dotted = stimulus" if args.stim else None]
     note = ", ".join(x for x in note if x)
@@ -210,13 +250,21 @@ def main():
                     help="+1 if arousal raises counts, -1 if it lowers them (default 1; ignored when the log already has phasic)")
     ap.add_argument("--rest", type=float, nargs=2, metavar=("START", "END"), help="seconds of quiet sitting still")
     ap.add_argument("--stim", type=float, nargs="*", help="seconds at which you took a deep breath / clapped")
+    ap.add_argument("--start", type=float, default=0.0, help="ignore data before this time (s), e.g. while electrodes settle")
+    ap.add_argument("--recompute", action="store_true", help="rebuild fast/baseline/phasic from counts even if the log has them")
     ap.add_argument("--threshold", type=float, help="draw this TRIGGER_RISE_COUNTS line")
     ap.add_argument("--out", help="output PNG (default: <csv>.png)")
     ap.add_argument("--show", action="store_true", help="open an interactive window")
     args = ap.parse_args()
 
     df = load(args.csv)
-    logged = all(c in df.columns for c in ("sig_fast", "sig_base", "phasic")) and df["phasic"].notna().any()
+    if df.attrs["dropped"]:
+        print(f"Dropped {df.attrs['dropped']} corrupt/out-of-order rows.")
+    for g in df.attrs["gaps"]:
+        print(f"WARNING: data missing from {g[0]:.1f} s to {g[1]:.1f} s ({g[1]-g[0]:.0f} s lost in capture).")
+    if args.start > 0:
+        df = df[df["t"] >= args.start].reset_index(drop=True)
+    logged = (not args.recompute) and all(c in df.columns for c in ("sig_fast", "sig_base", "phasic")) and df["phasic"].notna().any()
     if args.polarity is None:
         args.polarity = 1.0
     if not logged:

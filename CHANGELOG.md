@@ -1,5 +1,13 @@
 # Changelog
 
+## Real data, 2026-11-25 (ground wire seated, electrodes on hand)
+- Air reads 0.0 counts; skin reads 3-17 (resting 6-12, about 1% of the ADC range). Contact raises counts, so `POLARITY = +1`; `NO_CONTACT_BELOW = 1`.
+- Counts keep rising for about 40 s after contact, so calibration starting 2 s after contact biased the baseline low (phasic sat at +3 to +5 for minutes). Fix: `CALIBRATION_S = 60` and the baseline now starts at the current fast level instead of the window mean.
+- Rest: noise 0.3-1.1 counts p-p, wander about 2 counts per minute, largest rest wiggle about 2 counts. One clean response: +6.3 counts. `TRIGGER_RISE_COUNTS = 4.0` is provisional; the rule of thumb wanted about 4.7, so the margin is thin.
+- Earlier log (ground wire unplugged for the first 533 s) is not usable.
+- Capture lost data twice (448 s, then 72 s). `capture.py` now echoes every 20th line only and prints a loud warning on any gap; `plot_eda.py` marks gaps in red and ignores junk/corrupt rows. Cause not pinned down: suspect the Mac throttling Terminal while it is in the background.
+- Simulation regression after the sketch changes: bursts at 71.9 s and 116.7 s, test burst 200 s, safety cutoff 235 s, same for both polarities.
+
 ## Tools
 - Added `tools/capture.py` (serial to CSV) and `tools/plot_eda.py` (plots plus N/D/S/E threshold estimate). Tested on synthetic logs and the simulated sketch log: recovered noise, drift and evoked rise sizes within the expected smoothing loss, same result for polarity +1 and -1.
 
