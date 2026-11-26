@@ -27,8 +27,8 @@ The Uno has one 5V pin, so share it through one breadboard strip row. Never feed
 - `sim/` — host-side C++ harnesses with a stub `Arduino.h` and simulated signals.
 
 ## Atomizer check (do this before any real run)
-The module appears to be **active-LOW** (it ran continuously when D7 idled LOW), so the sketches use `ACTIVE_HIGH = false`: D7 idles HIGH and goes LOW to spray. Unconfirmed until tested. With S on D7, V on 5V, G on GND: send `f` (must be off), `a` (stays off), `t` (mists about 5 s, then stops). Mists on `f` or idle: set `ACTIVE_HIGH = true`. Toggles on each command instead of timing out: it is a falling-edge toggle and the sketch needs a pulse mode.
-D7 floats during reset and upload (about 1-2 s), so the atomizer may spray briefly each time `capture.py` opens the port. A 10 k pull-up from S to 5V holds it off.
+Idle LOW ran the module continuously, and idle HIGH (`ACTIVE_HIGH = false`) did too, so it is not a simple level switch. Upload `firmware/atomizer_probe/atomizer_probe.ino` (atomizer only: V to 5V, G to GND, S to D7) and note what the module does after `h`, `l`, `z`, `p`, `n`. The sketch header says how to read the result and which constant to set. `ACTIVE_HIGH` in the main sketches is provisional until this is done.
+D7 floats during reset and upload (about 1-2 s). A 10 k resistor from S to 5V or GND, whichever the probe shows is the OFF level, holds it off.
 
 ## Capture and plot (Python)
 ```

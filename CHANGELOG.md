@@ -1,5 +1,9 @@
 # Changelog
 
+## Atomizer still ran with idle HIGH
+- With `ACTIVE_HIGH = false` (D7 HIGH = off) the module still ran, so my active-LOW guess was wrong or incomplete. Added `firmware/atomizer_probe/` to find the real behaviour (level, edge toggle, or S not controlling it). `ACTIVE_HIGH` stays provisional.
+- With the atomizer wired in, air read 1.0 counts (0.0 with it unplugged), so `NO_CONTACT_BELOW = 1` wrongly saw contact and started calibrating on an open electrode. Now 2 (skin was 2.7 or more). Suggests the atomizer shifts the shared ground or 5V; recheck while it is spraying.
+
 ## Atomizer polarity
 - Atomizer ran continuously with idle LOW and S confirmed on D7, so it is treated as active-LOW: `ACTIVE_HIGH = false` in `odax_atomizer.ino` and `atomizer.ino`. To be confirmed on hardware with `f`/`a`/`t`. Simulation: D7 idles HIGH, goes LOW at the same burst times as before.
 

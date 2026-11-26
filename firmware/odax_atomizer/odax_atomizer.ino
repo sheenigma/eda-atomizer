@@ -43,7 +43,7 @@ const uint8_t PIN_ATOMIZER = 7;
 
 // ---------------- ODAX signal ----------------
 const float POLARITY = 1.0f;          // +1 if OUT rises with arousal, -1 if it falls. Measured: contact raises counts, so +1
-const int   NO_CONTACT_BELOW = 1;     // counts below this = electrodes off. Measured: open air reads 0.0, skin 3-17. -1 disables
+const int   NO_CONTACT_BELOW = 2;     // counts below this = electrodes off. Air read 0.0 with the atomizer unplugged but 1.0 with it wired in; skin was 2.7 or more. -1 disables
 const int   NO_CONTACT_ABOVE = 1024;  // counts above this = electrodes off. 1024 disables
 const float VREF_MV = 5000.0f;        // only used for the mv_est column. Measure your 5V pin
 const uint16_t SAMPLE_HZ = 32;
