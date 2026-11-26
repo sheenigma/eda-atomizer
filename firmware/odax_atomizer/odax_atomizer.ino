@@ -42,8 +42,8 @@ const uint8_t PIN_ATOMIZER = 7;
 #define MIRROR_LED 1   // onboard LED mirrors the atomizer. Set to 0 when adding the SD card (D13 is SCK)
 
 // ---------------- ODAX signal ----------------
-const float POLARITY = 1.0f;          // +1 if OUT rises with arousal, -1 if it falls (find with odax_probe.ino)
-const int   NO_CONTACT_BELOW = -1;    // counts below this = electrodes off. -1 disables
+const float POLARITY = 1.0f;          // +1 if OUT rises with arousal, -1 if it falls. Measured: contact raises counts, so +1
+const int   NO_CONTACT_BELOW = 1;     // counts below this = electrodes off. Measured: open air reads 0.0, skin 3-17. -1 disables
 const int   NO_CONTACT_ABOVE = 1024;  // counts above this = electrodes off. 1024 disables
 const float VREF_MV = 5000.0f;        // only used for the mv_est column. Measure your 5V pin
 const uint16_t SAMPLE_HZ = 32;
@@ -52,9 +52,9 @@ const float FAST_TAU_S = 1.0f;        // smoothing time constant of the fast sig
 
 // ---------------- Trigger ----------------
 const unsigned long CONTACT_SETTLE_MS = 2000;
-const float         CALIBRATION_S     = 30.0f;   // dry electrodes keep settling for minutes, so use longer for real runs
+const float         CALIBRATION_S     = 60.0f;   // settling wait after contact. Measured: counts keep rising ~40 s after contact
 const float         BASELINE_TAU_S    = 60.0f;
-const float         TRIGGER_RISE_COUNTS = 6.0f;  // placeholder, about 30 mV at 5 V. Tune from the probe
+const float         TRIGGER_RISE_COUNTS = 4.0f;  // provisional, about 20 mV at 5 V. From one clean response (+6) and ~2 counts of rest wiggle. Re-tune with more data
 const unsigned long CONFIRM_MS        = 500;
 const unsigned long BURST_MS          = 5000;
 const unsigned long COOLDOWN_MS       = 30000;
@@ -163,7 +163,7 @@ static void sampleStep(unsigned long now) {
       }
     }
     if (state == ST_CALIBRATING && calN > 0 && (now - stateStart) >= (unsigned long)(CALIBRATION_S * 1000.0f)) {
-      sBase = calSum / (float)calN;
+      sBase = sFast;   // start the baseline at the current level; the window mean is biased low while the signal is still settling
       state = ST_ARMED;
       aboveTimer = false;
       needRelax = false;
